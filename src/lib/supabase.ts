@@ -1,17 +1,8 @@
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase as supabaseClient } from "@/integrations/supabase/client";
 
-// Get environment variables from import.meta.env (Vite) or process.env (Node)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    "Missing Supabase environment variables. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY."
-  );
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Re-export the supabase client to maintain backward compatibility
+export const supabase = supabaseClient;
 
 // Auth functions
 export const signIn = async (email: string, password: string) => {
