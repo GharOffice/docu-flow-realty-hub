@@ -39,7 +39,7 @@ export const signOut = async () => {
 // User functions
 export const getUsers = async () => {
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .select('*');
   
   if (error) throw error;
@@ -49,7 +49,7 @@ export const getUsers = async () => {
 
 export const createUser = async (user: any) => {
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .insert([user])
     .select();
   
@@ -60,7 +60,7 @@ export const createUser = async (user: any) => {
 
 export const updateUser = async (id: string, user: any) => {
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .update(user)
     .eq('id', id)
     .select();
@@ -72,7 +72,7 @@ export const updateUser = async (id: string, user: any) => {
 
 export const deleteUser = async (id: string) => {
   const { error } = await supabase
-    .from('users')
+    .from('profiles')
     .delete()
     .eq('id', id);
   
