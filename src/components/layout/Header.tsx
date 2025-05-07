@@ -1,12 +1,18 @@
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useSidebar } from "./SidebarContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Search,
   Bell,
   Menu,
+  User,
+  LogOut,
+  Settings,
+  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,10 +24,38 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Header = () => {
   const { isOpen, toggle } = useSidebar();
+  const { user, signOut } = useAuth();
   const [searchValue, setSearchValue] = useState("");
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
+
+  // Get the first letter of the user's name or email for the avatar
+  const getInitial = () => {
+    if (!user) return "U";
+    
+    if (user.user_metadata?.name) {
+      return user.user_metadata.name.charAt(0).toUpperCase();
+    }
+    
+    return user.email.charAt(0).toUpperCase();
+  };
+
+  // Get the user's display name
+  const getDisplayName = () => {
+    if (!user) return "User";
+    
+    return user.user_metadata?.name || user.email.split('@')[0];
+  };
 
   return (
     <header
@@ -86,6 +120,38 @@ const Header = () => {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-center cursor-pointer text-primary">View all notifications</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        
+        {/* User menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback>{getInitial()}</AvatarFallback>
+              </Avatar>
+              <span className="hidden md:inline-block">{getDisplayName()}</span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer" asChild>
+              <Link to="/settings">
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="cursor-pointer" onClick={handleSignOut}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
