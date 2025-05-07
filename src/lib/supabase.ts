@@ -38,13 +38,18 @@ export const signOut = async () => {
 
 // User functions
 export const getUsers = async () => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*');
-  
-  if (error) throw error;
-  
-  return data;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*');
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw error;
+  }
 };
 
 export const createUser = async (user: any) => {
@@ -55,7 +60,7 @@ export const createUser = async (user: any) => {
   
   if (error) throw error;
   
-  return data[0];
+  return data?.[0];
 };
 
 export const updateUser = async (id: string, user: any) => {
@@ -67,7 +72,7 @@ export const updateUser = async (id: string, user: any) => {
   
   if (error) throw error;
   
-  return data[0];
+  return data?.[0];
 };
 
 export const deleteUser = async (id: string) => {
@@ -81,56 +86,93 @@ export const deleteUser = async (id: string) => {
 
 // Role functions
 export const getRoles = async () => {
-  const { data, error } = await supabase
-    .from('roles')
-    .select('*');
-  
-  if (error) throw error;
-  
-  return data;
+  try {
+    // First try to get roles directly
+    const { data, error } = await supabase
+      .from('roles')
+      .select('*');
+    
+    if (error) {
+      console.error("Error fetching roles:", error);
+      // Fallback to a predefined list of basic roles if the query fails
+      return [
+        { id: "1", name: "Admin", description: "Administrator with all permissions" },
+        { id: "2", name: "User", description: "Standard user with basic permissions" }
+      ];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error("Error in getRoles:", error);
+    // Return fallback roles on any error
+    return [
+      { id: "1", name: "Admin", description: "Administrator with all permissions" },
+      { id: "2", name: "User", description: "Standard user with basic permissions" }
+    ];
+  }
 };
 
 export const createRole = async (role: any) => {
-  const { data, error } = await supabase
-    .from('roles')
-    .insert([role])
-    .select();
-  
-  if (error) throw error;
-  
-  return data[0];
+  try {
+    const { data, error } = await supabase
+      .from('roles')
+      .insert([role])
+      .select();
+    
+    if (error) throw error;
+    
+    return data?.[0];
+  } catch (error) {
+    console.error("Error creating role:", error);
+    throw error;
+  }
 };
 
 export const updateRole = async (id: string, role: any) => {
-  const { data, error } = await supabase
-    .from('roles')
-    .update(role)
-    .eq('id', id)
-    .select();
-  
-  if (error) throw error;
-  
-  return data[0];
+  try {
+    const { data, error } = await supabase
+      .from('roles')
+      .update(role)
+      .eq('id', id)
+      .select();
+    
+    if (error) throw error;
+    
+    return data?.[0];
+  } catch (error) {
+    console.error("Error updating role:", error);
+    throw error;
+  }
 };
 
 export const deleteRole = async (id: string) => {
-  const { error } = await supabase
-    .from('roles')
-    .delete()
-    .eq('id', id);
-  
-  if (error) throw error;
+  try {
+    const { error } = await supabase
+      .from('roles')
+      .delete()
+      .eq('id', id);
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error deleting role:", error);
+    throw error;
+  }
 };
 
 // Document Type functions
 export const getDocumentTypes = async () => {
-  const { data, error } = await supabase
-    .from('document_types')
-    .select('*');
-  
-  if (error) throw error;
-  
-  return data;
+  try {
+    const { data, error } = await supabase
+      .from('document_types')
+      .select('*');
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching document types:", error);
+    throw error;
+  }
 };
 
 export const createDocumentType = async (documentType: any) => {
@@ -141,7 +183,7 @@ export const createDocumentType = async (documentType: any) => {
   
   if (error) throw error;
   
-  return data[0];
+  return data?.[0];
 };
 
 export const updateDocumentType = async (id: string, documentType: any) => {
@@ -153,7 +195,7 @@ export const updateDocumentType = async (id: string, documentType: any) => {
   
   if (error) throw error;
   
-  return data[0];
+  return data?.[0];
 };
 
 export const deleteDocumentType = async (id: string) => {

@@ -24,7 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Users, UserPlus, Lock, FileText, Edit, Trash } from "lucide-react";
+import { Plus, Search, Users, UserPlus, Lock, FileText, Edit, Trash, AlertTriangle } from "lucide-react";
 import UserForm from "@/components/admin/UserForm";
 import RoleForm from "@/components/admin/RoleForm";
 import DocumentTypeForm from "@/components/admin/DocumentTypeForm";
@@ -45,13 +45,15 @@ const Admin = () => {
   const [selectedRole, setSelectedRole] = useState<any>(null);
   const [selectedDocType, setSelectedDocType] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   const { toast } = useToast();
 
-  // Load data when component mounts
+  // Load data when component mounts or tab changes
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
         switch (activeTab) {
           case "users":
@@ -69,6 +71,7 @@ const Admin = () => {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
+        setError("Failed to load data. Please try again.");
         toast({
           title: "Error",
           description: "Failed to load data. Please try again.",
@@ -84,8 +87,8 @@ const Admin = () => {
 
   // Filter users based on search query
   const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (user.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) || 
+    (user.email?.toLowerCase() || "").includes(searchQuery.toLowerCase())
   );
 
   // User form handlers
@@ -211,6 +214,47 @@ const Admin = () => {
     }
   };
 
+  const renderErrorState = () => (
+    <div className="flex flex-col items-center justify-center py-10 text-center">
+      <AlertTriangle className="h-12 w-12 text-red-500 mb-4" />
+      <h3 className="text-xl font-semibold mb-2">Something went wrong</h3>
+      <p className="text-muted-foreground mb-6 max-w-md mx-auto">{error || "Failed to load data. Please try again."}</p>
+      <Button 
+        onClick={() => {
+          setLoading(true);
+          setError(null);
+          const fetchData = async () => {
+            try {
+              switch (activeTab) {
+                case "users":
+                  const userData = await supabaseService.getUsers();
+                  setUsers(userData);
+                  break;
+                case "roles":
+                  const rolesData = await supabaseService.getRoles();
+                  setRoles(rolesData);
+                  break;
+                case "document-types":
+                  const docTypesData = await supabaseService.getDocumentTypes();
+                  setDocumentTypes(docTypesData);
+                  break;
+              }
+              setLoading(false);
+            } catch (err) {
+              console.error("Error retrying fetch:", err);
+              setError("Failed to load data after retry. Please try again later.");
+              setLoading(false);
+            }
+          };
+          fetchData();
+        }}
+        variant="outline"
+      >
+        Try Again
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -251,77 +295,79 @@ const Admin = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search users..." 
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-              </div>
+              {error && renderErrorState()}
               
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          Loading users...
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredUsers.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No users found. {searchQuery ? "Try a different search query." : "Create some users to get started."}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredUsers.map((user) => (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.name}</TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            {roles.find(role => role.id === user.roleId)?.name || user.role || "No role"}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-green-500">Active</Badge>
-                          </TableCell>
-                          <TableCell className="text-right space-x-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-red-500"
-                              onClick={() => handleDeleteUser(user.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+              {!error && (
+                <>
+                  <div className="mb-4 relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search users..." 
+                      className="pl-8"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                    {!loading && filteredUsers.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No users found. {searchQuery ? "Try a different search query." : "Create some users to get started."}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      </TableHeader>
+                      <TableBody>
+                        {loading ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              <div className="flex flex-col items-center justify-center">
+                                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+                                <p>Loading users...</p>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredUsers.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                              No users found. {searchQuery ? "Try a different search query." : "Create some users to get started."}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredUsers.map((user) => (
+                            <TableRow key={user.id}>
+                              <TableCell className="font-medium">{user.name || "No name"}</TableCell>
+                              <TableCell>{user.email || "No email"}</TableCell>
+                              <TableCell>
+                                {roles.find(role => role.id === user.role_id)?.name || user.role || "No role"}
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
+                              </TableCell>
+                              <TableCell className="text-right space-x-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -341,55 +387,62 @@ const Admin = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Role Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Users</TableHead>
-                      <TableHead>Permission Level</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
+              {error && renderErrorState()}
+              
+              {!error && (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          Loading roles...
-                        </TableCell>
+                        <TableHead>Role Name</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Users</TableHead>
+                        <TableHead>Permission Level</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ) : roles.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No roles found. Create some roles to get started.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      roles.map((role) => (
-                        <TableRow key={role.id}>
-                          <TableCell className="font-medium">{role.name}</TableCell>
-                          <TableCell>{role.description}</TableCell>
-                          <TableCell>
-                            {users.filter(user => user.roleId === role.id || user.role === role.name).length}
-                          </TableCell>
-                          <TableCell>
-                            <Badge>
-                              {role.permissions?.length > 3 ? "Advanced" : 
-                               role.permissions?.length > 0 ? "Standard" : "Limited"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right space-x-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditRole(role)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+                              <p>Loading roles...</p>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      ) : roles.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No roles found. Create some roles to get started.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        roles.map((role) => (
+                          <TableRow key={role.id}>
+                            <TableCell className="font-medium">{role.name}</TableCell>
+                            <TableCell>{role.description || "No description"}</TableCell>
+                            <TableCell>
+                              {users.filter(user => user.role_id === role.id || user.role === role.name).length}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                                {role.permissions?.length > 3 ? "Advanced" : 
+                                 role.permissions?.length > 0 ? "Standard" : "Limited"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditRole(role)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -409,56 +462,63 @@ const Admin = () => {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type Name</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Required Approvals</TableHead>
-                      <TableHead>SLA (Days)</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
+              {error && renderErrorState()}
+              
+              {!error && (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          Loading document types...
-                        </TableCell>
+                        <TableHead>Type Name</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Required Approvals</TableHead>
+                        <TableHead>SLA (Days)</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ) : documentTypes.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                          No document types found. Create some document types to get started.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      documentTypes.map((docType) => (
-                        <TableRow key={docType.id}>
-                          <TableCell className="font-medium">{docType.name}</TableCell>
-                          <TableCell>{docType.description}</TableCell>
-                          <TableCell>{docType.requiredApprovals}</TableCell>
-                          <TableCell>{docType.sla}</TableCell>
-                          <TableCell className="text-right space-x-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleEditDocType(docType)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-red-500"
-                              onClick={() => handleDeleteDocType(docType.id)}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            <div className="flex flex-col items-center justify-center">
+                              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+                              <p>Loading document types...</p>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      ) : documentTypes.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                            No document types found. Create some document types to get started.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        documentTypes.map((docType) => (
+                          <TableRow key={docType.id}>
+                            <TableCell className="font-medium">{docType.name}</TableCell>
+                            <TableCell>{docType.description || "No description"}</TableCell>
+                            <TableCell>{docType.requiredApprovals}</TableCell>
+                            <TableCell>{docType.sla}</TableCell>
+                            <TableCell className="text-right space-x-1">
+                              <Button variant="ghost" size="icon" onClick={() => handleEditDocType(docType)}>
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => handleDeleteDocType(docType.id)}
+                              >
+                                <Trash className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
