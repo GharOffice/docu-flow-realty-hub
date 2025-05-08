@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -27,7 +27,7 @@ import { X } from "lucide-react";
 const userFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({ message: "Please enter a valid email address." }),
-  role: z.string().min(1, { message: "Please select a role." }),
+  role_id: z.string().min(1, { message: "Please select a role." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }).optional(),
 });
 
@@ -41,7 +41,8 @@ interface UserFormProps {
     id: string;
     name: string;
     email: string;
-    role: string;
+    role_id?: string;
+    role?: string;
   };
   roles: { id: string; name: string }[];
 }
@@ -55,10 +56,29 @@ const UserForm = ({ isOpen, onClose, onSubmit, user, roles }: UserFormProps) => 
     defaultValues: {
       name: user?.name || "",
       email: user?.email || "",
-      role: user?.role || "",
+      role_id: user?.role_id || "",
       password: "",
     },
   });
+
+  // Update form when user changes
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name || "",
+        email: user.email || "",
+        role_id: user.role_id || "",
+        password: "", // Always empty for editing
+      });
+    } else {
+      form.reset({
+        name: "",
+        email: "",
+        role_id: "",
+        password: "",
+      });
+    }
+  }, [user, form]);
 
   const handleSubmit = async (data: UserFormData) => {
     setIsLoading(true);
@@ -128,13 +148,14 @@ const UserForm = ({ isOpen, onClose, onSubmit, user, roles }: UserFormProps) => 
 
               <FormField
                 control={form.control}
-                name="role"
+                name="role_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Role</FormLabel>
                     <Select 
                       onValueChange={field.onChange} 
                       defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>

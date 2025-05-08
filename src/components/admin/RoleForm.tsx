@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -63,6 +63,23 @@ const RoleForm = ({ isOpen, onClose, onSubmit, role }: RoleFormProps) => {
       permissions: role?.permissions || [],
     },
   });
+
+  // Update form when role changes
+  useEffect(() => {
+    if (role) {
+      form.reset({
+        name: role.name || "",
+        description: role.description || "",
+        permissions: Array.isArray(role.permissions) ? role.permissions : [],
+      });
+    } else {
+      form.reset({
+        name: "",
+        description: "",
+        permissions: [],
+      });
+    }
+  }, [role, form]);
 
   const handleSubmit = async (data: RoleFormData) => {
     setIsLoading(true);

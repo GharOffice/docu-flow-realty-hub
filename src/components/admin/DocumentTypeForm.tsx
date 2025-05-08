@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -42,7 +42,8 @@ interface DocumentTypeFormProps {
     id: string;
     name: string;
     description: string;
-    requiredApprovals: string;
+    requiredApprovals?: string;
+    required_approvals?: number;
     sla: number;
   };
 }
@@ -56,10 +57,31 @@ const DocumentTypeForm = ({ isOpen, onClose, onSubmit, documentType }: DocumentT
     defaultValues: {
       name: documentType?.name || "",
       description: documentType?.description || "",
-      requiredApprovals: documentType?.requiredApprovals || "",
+      // Handle both requiredApprovals and required_approvals (database column)
+      requiredApprovals: documentType?.requiredApprovals 
+        ? String(documentType.requiredApprovals) 
+        : documentType?.required_approvals 
+          ? String(documentType.required_approvals) 
+          : "1",
       sla: documentType?.sla || 3,
     },
   });
+
+  // Update form when documentType changes
+  useEffect(() => {
+    if (documentType) {
+      form.reset({
+        name: documentType.name || "",
+        description: documentType.description || "",
+        requiredApprovals: documentType.requiredApprovals 
+          ? String(documentType.requiredApprovals) 
+          : documentType.required_approvals 
+            ? String(documentType.required_approvals) 
+            : "1",
+        sla: documentType.sla || 3,
+      });
+    }
+  }, [documentType, form]);
 
   const handleSubmit = async (data: DocumentTypeFormData) => {
     setIsLoading(true);
@@ -141,6 +163,7 @@ const DocumentTypeForm = ({ isOpen, onClose, onSubmit, documentType }: DocumentT
                     <Select 
                       onValueChange={field.onChange} 
                       defaultValue={field.value}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -148,11 +171,11 @@ const DocumentTypeForm = ({ isOpen, onClose, onSubmit, documentType }: DocumentT
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Manager">Manager</SelectItem>
-                        <SelectItem value="Manager, Legal">Manager, Legal</SelectItem>
-                        <SelectItem value="Manager, Legal, Executive">Manager, Legal, Executive</SelectItem>
-                        <SelectItem value="Legal">Legal</SelectItem>
-                        <SelectItem value="Manager, Executive">Manager, Executive</SelectItem>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="4">4</SelectItem>
+                        <SelectItem value="5">5</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

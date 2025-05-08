@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -25,17 +25,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
 
 const Header = () => {
   const { isOpen, toggle } = useSidebar();
   const { user, signOut } = useAuth();
   const [searchValue, setSearchValue] = useState("");
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSignOut = async () => {
     try {
       await signOut();
+      toast({
+        title: "Signed out successfully",
+        description: "You have been signed out of your account.",
+      });
+      navigate("/auth");
     } catch (error) {
       console.error("Error signing out:", error);
+      toast({
+        title: "Error signing out",
+        description: "There was a problem signing you out. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -47,21 +60,21 @@ const Header = () => {
       return user.user_metadata.name.charAt(0).toUpperCase();
     }
     
-    return user.email.charAt(0).toUpperCase();
+    return user.email?.charAt(0).toUpperCase() || "U";
   };
 
   // Get the user's display name
   const getDisplayName = () => {
     if (!user) return "User";
     
-    return user.user_metadata?.name || user.email.split('@')[0];
+    return user.user_metadata?.name || user.email?.split('@')[0] || "User";
   };
 
   return (
     <header
       className={cn(
         "h-16 fixed top-0 z-30 w-full bg-background border-b border-border flex items-center px-4 transition-all duration-300",
-        isOpen ? "ml-64" : "ml-20"
+        isOpen ? "ml-64 lg:w-[calc(100%-16rem)]" : "ml-20 lg:w-[calc(100%-5rem)]"
       )}
     >
       <div className="flex items-center lg:hidden">
@@ -148,9 +161,9 @@ const Header = () => {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" onClick={handleSignOut}>
+            <DropdownMenuItem className="cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+              <span>Sign out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
