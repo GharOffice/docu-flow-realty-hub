@@ -99,13 +99,13 @@ const DocumentCard = ({ document, onFavorite, onDelete }: DocumentCardProps) => 
       
       // Create download link
       const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = `${docData.title || 'document'}.${docData.file_path.split('.').pop()}`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
       
       toast({
         title: "Download started",

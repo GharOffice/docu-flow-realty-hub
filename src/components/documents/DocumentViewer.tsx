@@ -123,13 +123,13 @@ const DocumentViewer = ({ document }: DocumentViewerProps) => {
       
       // Create download link
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = window.document.createElement('a');
       a.href = url;
       a.download = `${document.title}.${document.fileType || 'pdf'}`;
-      document.body.appendChild(a);
+      window.document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      window.document.body.removeChild(a);
       
       toast({
         title: "Download started",
@@ -336,7 +336,7 @@ const DocumentViewer = ({ document }: DocumentViewerProps) => {
             onClick={() => {
               setActiveTab("comments");
               setTimeout(() => {
-                const commentInput = document.getElementById("comment-input");
+                const commentInput = window.document.getElementById("comment-input");
                 if (commentInput) commentInput.focus();
               }, 100);
             }}
