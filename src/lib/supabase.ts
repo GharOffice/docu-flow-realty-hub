@@ -1,5 +1,6 @@
 
 import { supabase as supabaseClient } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 // Re-export the supabase client to maintain backward compatibility
 export const supabase = supabaseClient;
@@ -41,11 +42,18 @@ export const getUsers = async () => {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*');
+      .select(`
+        *,
+        roles:role_id (id, name)
+      `);
     
     if (error) throw error;
     
-    return data || [];
+    return data?.map(profile => ({
+      ...profile,
+      role: profile.roles?.name || 'User',
+      roleId: profile.role_id
+    })) || [];
   } catch (error) {
     console.error("Error fetching users:", error);
     throw error;
@@ -54,9 +62,26 @@ export const getUsers = async () => {
 
 export const createUser = async (user: any) => {
   try {
+    // First create the auth user
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: user.email,
+      password: user.password || Math.random().toString(36).slice(-8), // Generate random password if none provided
+      email_confirm: true,
+      user_metadata: {
+        name: user.name
+      }
+    });
+
+    if (authError) throw authError;
+    
+    // Then update the profile
     const { data, error } = await supabase
       .from('profiles')
-      .insert([user])
+      .update({
+        name: user.name,
+        role_id: user.roleId
+      })
+      .eq('id', authData.user.id)
       .select();
     
     if (error) throw error;
@@ -72,7 +97,10 @@ export const updateUser = async (id: string, user: any) => {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .update(user)
+      .update({
+        name: user.name,
+        role_id: user.roleId
+      })
       .eq('id', id)
       .select();
     
@@ -87,10 +115,8 @@ export const updateUser = async (id: string, user: any) => {
 
 export const deleteUser = async (id: string) => {
   try {
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', id);
+    // Delete the auth user (this will cascade to the profile)
+    const { error } = await supabase.auth.admin.deleteUser(id);
     
     if (error) throw error;
   } catch (error) {
@@ -209,7 +235,10 @@ export const getDocumentTypes = async () => {
       return [];
     }
     
-    return data || [];
+    return data?.map(type => ({
+      ...type,
+      requiredApprovals: type.required_approvals
+    })) || [];
   } catch (error) {
     console.error("Error fetching document types:", error);
     return []; // Return empty array on error
@@ -314,6 +343,178 @@ export const deleteDocumentType = async (id: string) => {
     if (error) throw error;
   } catch (error) {
     console.error("Error deleting document type:", error);
+    throw error;
+  }
+};
+
+// Document functions
+export const getDocuments = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        profiles:created_by(name),
+        document_types:document_type_id(name)
+      `)
+      .order('updated_at', { ascending: false });
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching documents:", error);
+    throw error;
+  }
+};
+
+export const getDocument = async (id: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select(`
+        *,
+        profiles:created_by(name),
+        document_types:document_type_id(name)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error("Error fetching document:", error);
+    throw error;
+  }
+};
+
+export const uploadDocument = async (file: File, documentData: any, userId: string) => {
+  try {
+    // 1. Upload file to storage
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await supabase.storage
+      .from('documents')
+      .upload(fileName, file);
+    
+    if (uploadError) throw uploadError;
+    
+    // 2. Create document record
+    const { data, error: docError } = await supabase
+      .from('documents')
+      .insert([{
+        title: documentData.title,
+        description: documentData.description || null,
+        document_type_id: documentData.documentTypeId,
+        created_by: userId,
+        file_path: fileName,
+        file_type: fileExt,
+        file_size: file.size,
+        status: 'draft',
+      }])
+      .select();
+    
+    if (docError) throw docError;
+    
+    return data?.[0];
+  } catch (error) {
+    console.error("Error uploading document:", error);
+    throw error;
+  }
+};
+
+export const updateDocument = async (id: string, documentData: any) => {
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .update({
+        title: documentData.title,
+        description: documentData.description,
+        document_type_id: documentData.documentTypeId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select();
+    
+    if (error) throw error;
+    
+    return data?.[0];
+  } catch (error) {
+    console.error("Error updating document:", error);
+    throw error;
+  }
+};
+
+export const deleteDocument = async (id: string) => {
+  try {
+    // First get the document to find the file path
+    const { data: document, error: fetchError } = await supabase
+      .from('documents')
+      .select('file_path')
+      .eq('id', id)
+      .single();
+    
+    if (fetchError) throw fetchError;
+    
+    // Delete document record
+    const { error: deleteError } = await supabase
+      .from('documents')
+      .delete()
+      .eq('id', id);
+    
+    if (deleteError) throw deleteError;
+    
+    // Delete file from storage
+    if (document?.file_path) {
+      await supabase.storage
+        .from('documents')
+        .remove([document.file_path]);
+    }
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    throw error;
+  }
+};
+
+// Approval functions
+export const addComment = async (documentId: string, comment: string) => {
+  try {
+    const { data, error } = await supabase.rpc(
+      'add_document_comment',
+      { 
+        doc_id: documentId, 
+        comment_text: comment 
+      }
+    );
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error("Error adding comment:", error);
+    throw error;
+  }
+};
+
+export const updateApprovalStatus = async (documentId: string, approvalId: string, status: string, comment?: string) => {
+  try {
+    const { data, error } = await supabase.rpc(
+      'update_document_approval_status',
+      { 
+        doc_id: documentId, 
+        approval_id: approvalId,
+        new_status: status,
+        comment_text: comment
+      }
+    );
+    
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error("Error updating approval status:", error);
     throw error;
   }
 };

@@ -259,7 +259,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      add_document_comment: {
+        Args: { doc_id: string; comment_text: string }
+        Returns: Json
+      }
+      update_document_approval_status: {
+        Args: {
+          doc_id: string
+          approval_id: string
+          new_status: string
+          comment_text?: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

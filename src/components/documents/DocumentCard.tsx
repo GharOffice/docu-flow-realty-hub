@@ -13,6 +13,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/lib/supabase";
+import { toast } from "@/hooks/use-toast";
 
 interface DocumentCardProps {
   document: {
@@ -28,6 +30,7 @@ interface DocumentCardProps {
     favorited?: boolean;
   };
   onFavorite?: (id: string, favorited: boolean) => void;
+  onDelete?: (id: string) => void;
 }
 
 const getFileIcon = (type: string) => {
@@ -60,14 +63,97 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-const DocumentCard = ({ document, onFavorite }: DocumentCardProps) => {
+const DocumentCard = ({ document, onFavorite, onDelete }: DocumentCardProps) => {
   const [favorited, setFavorited] = useState(document.favorited || false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   const handleFavorite = () => {
     const newValue = !favorited;
     setFavorited(newValue);
     if (onFavorite) {
       onFavorite(document.id, newValue);
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      setIsDownloading(true);
+      
+      // First get the file path
+      const { data: docData, error: docError } = await supabase
+        .from('documents')
+        .select('file_path, title')
+        .eq('id', document.id)
+        .single();
+      
+      if (docError || !docData?.file_path) {
+        throw new Error("Could not find document file");
+      }
+      
+      // Download the file
+      const { data, error } = await supabase.storage
+        .from('documents')
+        .download(docData.file_path);
+      
+      if (error) throw error;
+      
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${docData.title || 'document'}.${docData.file_path.split('.').pop()}`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Download started",
+        description: "Your document is being downloaded",
+      });
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast({
+        title: "Download failed",
+        description: "Unable to download the document. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      // Create a shareable link
+      const { data: docData, error: docError } = await supabase
+        .from('documents')
+        .select('file_path')
+        .eq('id', document.id)
+        .single();
+      
+      if (docError || !docData?.file_path) {
+        throw new Error("Could not find document file");
+      }
+      
+      const { data } = supabase.storage
+        .from('documents')
+        .getPublicUrl(docData.file_path);
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(data.publicUrl);
+      
+      toast({
+        title: "Link copied",
+        description: "Document link has been copied to clipboard",
+      });
+    } catch (error) {
+      console.error("Error sharing document:", error);
+      toast({
+        title: "Share failed",
+        description: "Unable to create a shareable link. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -119,17 +205,33 @@ const DocumentCard = ({ document, onFavorite }: DocumentCardProps) => {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem className="cursor-pointer" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.location.href = `/documents/${document.id}`;
+              }}>
                 <Edit className="h-4 w-4 mr-2" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem className="cursor-pointer" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDownload();
+              }}>
                 <Download className="h-4 w-4 mr-2" /> Download
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer">
+              <DropdownMenuItem className="cursor-pointer" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleShare();
+              }}>
                 <Share className="h-4 w-4 mr-2" /> Share
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer text-destructive">
+              <DropdownMenuItem className="cursor-pointer text-destructive" onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (onDelete) onDelete(document.id);
+              }}>
                 <Trash className="h-4 w-4 mr-2" /> Delete
               </DropdownMenuItem>
             </DropdownMenuContent>
