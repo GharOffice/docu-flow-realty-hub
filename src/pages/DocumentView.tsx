@@ -74,22 +74,32 @@ const DocumentView = () => {
       };
       
       // Process comments
-      const comments = activities?.map(activity => ({
-        id: activity.id,
-        user: {
-          id: activity.user?.id,
-          name: activity.user?.name || 'Unknown User',
-          initials: (activity.user?.name || 'Unknown User')
-            .split(' ')
-            .map(name => name[0])
-            .join('')
-            .toUpperCase()
-            .substring(0, 2),
-        },
-        text: activity.details?.text || '',
-        timestamp: formatTimestamp(activity.created_at),
-        timeAgo: getTimeAgo(new Date(activity.created_at)),
-      })) || [];
+      const comments = activities?.map(activity => {
+        let commentText = "";
+        if (activity.details) {
+          const details = typeof activity.details === 'string' 
+            ? JSON.parse(activity.details) 
+            : activity.details;
+          commentText = details?.text || '';
+        }
+        
+        return {
+          id: activity.id,
+          user: {
+            id: activity.user?.id,
+            name: activity.user?.name || 'Unknown User',
+            initials: (activity.user?.name || 'Unknown User')
+              .split(' ')
+              .map(name => name[0])
+              .join('')
+              .toUpperCase()
+              .substring(0, 2),
+          },
+          text: commentText,
+          timestamp: formatTimestamp(activity.created_at),
+          timeAgo: getTimeAgo(new Date(activity.created_at)),
+        };
+      }) || [];
       
       // Get file URL
       let fileUrl = '';

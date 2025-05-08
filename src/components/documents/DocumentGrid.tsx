@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import DocumentCard from "./DocumentCard";
@@ -115,12 +114,18 @@ const DocumentGrid = () => {
             .join('')
             .toUpperCase()
             .substring(0, 2);
+          
+          // Ensure status is one of the allowed types
+          let status: "draft" | "pending" | "approved" | "rejected" = "draft";
+          if (doc.status === "pending" || doc.status === "approved" || doc.status === "rejected") {
+            status = doc.status;
+          }
 
           return {
             id: doc.id,
             title: doc.title,
             type,
-            status: doc.status,
+            status,
             updatedAt: timeDisplay,
             owner: {
               name: ownerName,

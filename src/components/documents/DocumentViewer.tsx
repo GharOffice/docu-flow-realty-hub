@@ -335,7 +335,10 @@ const DocumentViewer = ({ document }: DocumentViewerProps) => {
             size="sm" 
             onClick={() => {
               setActiveTab("comments");
-              setTimeout(() => document.getElementById("comment-input")?.focus(), 100);
+              setTimeout(() => {
+                const commentInput = document.getElementById("comment-input");
+                if (commentInput) commentInput.focus();
+              }, 100);
             }}
           >
             <MessageSquare size={16} className="mr-1" /> Comment
