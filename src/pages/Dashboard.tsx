@@ -1,12 +1,58 @@
 
+import { useState, useEffect } from "react";
 import { CheckSquare, FileText, Users, AlertCircle } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
 import RecentActivity from "@/components/dashboard/RecentActivity";
 import PendingApprovals from "@/components/dashboard/PendingApprovals";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { fetchDashboardStatistics, DashboardStats } from "@/components/dashboard/StatisticsService";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalDocumentsCount: 0,
+    pendingDocumentsCount: 0,
+    activeUsersCount: 0,
+    overdueItemsCount: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        const dashboardStats = await fetchDashboardStatistics();
+        setStats(dashboardStats);
+      } catch (error) {
+        console.error("Error loading dashboard data:", error);
+        toast({
+          title: "Error loading dashboard data",
+          description: "There was a problem loading the dashboard statistics.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (user) {
+      loadDashboardData();
+    }
+  }, [user]);
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -21,7 +67,7 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Documents"
-          value="256"
+          value={stats.totalDocumentsCount.toString()}
           description="Documents in system"
           icon={FileText}
           iconColor="text-blue-500"
@@ -29,7 +75,7 @@ const Dashboard = () => {
         />
         <StatCard
           title="Pending Approvals"
-          value="24"
+          value={stats.pendingDocumentsCount.toString()}
           description="Awaiting review"
           icon={CheckSquare}
           iconColor="text-yellow-500"
@@ -37,7 +83,7 @@ const Dashboard = () => {
         />
         <StatCard
           title="Active Users"
-          value="42"
+          value={stats.activeUsersCount.toString()}
           description="Using the platform"
           icon={Users}
           iconColor="text-green-500"
@@ -45,7 +91,7 @@ const Dashboard = () => {
         />
         <StatCard
           title="Overdue Items"
-          value="7"
+          value={stats.overdueItemsCount.toString()}
           description="Past due date"
           icon={AlertCircle}
           iconColor="text-red-500"
@@ -65,22 +111,30 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
-              <Button className="h-24 flex-col">
-                <FileText className="h-6 w-6 mb-2" />
-                <span>Upload Document</span>
-              </Button>
-              <Button className="h-24 flex-col" variant="outline">
-                <CheckSquare className="h-6 w-6 mb-2" />
-                <span>Start Approval Flow</span>
-              </Button>
-              <Button className="h-24 flex-col" variant="outline">
-                <Users className="h-6 w-6 mb-2" />
-                <span>Invite Team Member</span>
-              </Button>
-              <Button className="h-24 flex-col" variant="outline">
-                <AlertCircle className="h-6 w-6 mb-2" />
-                <span>View Overdue Items</span>
-              </Button>
+              <Link to="/documents">
+                <Button className="h-24 w-full flex-col">
+                  <FileText className="h-6 w-6 mb-2" />
+                  <span>Upload Document</span>
+                </Button>
+              </Link>
+              <Link to="/approvals">
+                <Button className="h-24 w-full flex-col" variant="outline">
+                  <CheckSquare className="h-6 w-6 mb-2" />
+                  <span>Start Approval Flow</span>
+                </Button>
+              </Link>
+              <Link to="/settings">
+                <Button className="h-24 w-full flex-col" variant="outline">
+                  <Users className="h-6 w-6 mb-2" />
+                  <span>Invite Team Member</span>
+                </Button>
+              </Link>
+              <Link to="/documents?filter=overdue">
+                <Button className="h-24 w-full flex-col" variant="outline">
+                  <AlertCircle className="h-6 w-6 mb-2" />
+                  <span>View Overdue Items</span>
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>

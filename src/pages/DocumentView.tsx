@@ -77,10 +77,20 @@ const DocumentView = () => {
       const comments = activities?.map(activity => {
         let commentText = "";
         if (activity.details) {
-          const details = typeof activity.details === 'string' 
-            ? JSON.parse(activity.details) 
-            : activity.details;
-          commentText = details?.text || '';
+          try {
+            // Check if details is already parsed or needs to be parsed
+            const details = typeof activity.details === 'string' 
+              ? JSON.parse(activity.details) 
+              : activity.details;
+              
+            // Access the text property safely after parsing
+            commentText = details && typeof details === 'object' && 'text' in details
+              ? String(details.text)
+              : '';
+          } catch (e) {
+            console.error("Error parsing comment details:", e);
+            commentText = "";
+          }
         }
         
         return {

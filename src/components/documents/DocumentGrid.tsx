@@ -36,6 +36,72 @@ const DocumentGrid = () => {
   const [activeFilter, setActiveFilter] = useState("all");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
 
+  // Fix the type error in formatDocumentData function
+  const formatDocumentData = (doc: any, favoritesMap: Record<string, boolean>): Document => {
+    // Determine file type
+    let type: "pdf" | "doc" | "xls" | "img" | "other" = "other";
+    if (doc.file_type) {
+      const fileType = doc.file_type.toLowerCase();
+      if (fileType === 'pdf') type = "pdf";
+      else if (fileType === 'docx' || fileType === 'doc') type = "doc";
+      else if (fileType === 'xlsx' || fileType === 'xls') type = "xls";
+      else if (fileType === 'jpg' || fileType === 'jpeg' || fileType === 'png' || fileType === 'gif') type = "img";
+    }
+    
+    // Format the timestamp
+    const updatedAt = new Date(doc.updated_at);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - updatedAt.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    let timeDisplay;
+    if (diffDays === 0) {
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+      if (diffHours === 0) {
+        const diffMinutes = Math.floor(diffTime / (1000 * 60));
+        timeDisplay = `${diffMinutes} minutes ago`;
+      } else {
+        timeDisplay = `${diffHours} hours ago`;
+      }
+    } else if (diffDays === 1) {
+      timeDisplay = "Yesterday";
+    } else if (diffDays < 7) {
+      timeDisplay = `${diffDays} days ago`;
+    } else if (diffDays < 30) {
+      timeDisplay = `${Math.floor(diffDays / 7)} weeks ago`;
+    } else {
+      timeDisplay = updatedAt.toLocaleDateString();
+    }
+
+    // Create owner display
+    const ownerName = doc.profiles?.name || 'Unknown User';
+    const initials = ownerName
+      .split(' ')
+      .map((name: string) => name[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+    
+    // Ensure status is one of the allowed types
+    let status: "draft" | "pending" | "approved" | "rejected" = "draft";
+    if (doc.status === "pending") status = "pending";
+    else if (doc.status === "approved") status = "approved";
+    else if (doc.status === "rejected") status = "rejected";
+
+    return {
+      id: doc.id,
+      title: doc.title,
+      type,
+      status,
+      updatedAt: timeDisplay,
+      owner: {
+        name: ownerName,
+        initials,
+      },
+      favorited: !!favoritesMap[doc.id],
+    };
+  };
+
   // Fetch documents
   const { data: documents = [], isLoading, error, refetch } = useQuery({
     queryKey: ['documents'],
@@ -70,70 +136,7 @@ const DocumentGrid = () => {
         setFavorites(favoritesMap);
 
         // Map documents to the expected format
-        return documentsData?.map(doc => {
-          // Determine file type
-          let type: "pdf" | "doc" | "xls" | "img" | "other" = "other";
-          if (doc.file_type) {
-            const fileType = doc.file_type.toLowerCase();
-            if (fileType === 'pdf') type = "pdf";
-            else if (fileType === 'docx' || fileType === 'doc') type = "doc";
-            else if (fileType === 'xlsx' || fileType === 'xls') type = "xls";
-            else if (fileType === 'jpg' || fileType === 'jpeg' || fileType === 'png' || fileType === 'gif') type = "img";
-          }
-          
-          // Format the timestamp
-          const updatedAt = new Date(doc.updated_at);
-          const now = new Date();
-          const diffTime = Math.abs(now.getTime() - updatedAt.getTime());
-          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          
-          let timeDisplay;
-          if (diffDays === 0) {
-            const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-            if (diffHours === 0) {
-              const diffMinutes = Math.floor(diffTime / (1000 * 60));
-              timeDisplay = `${diffMinutes} minutes ago`;
-            } else {
-              timeDisplay = `${diffHours} hours ago`;
-            }
-          } else if (diffDays === 1) {
-            timeDisplay = "Yesterday";
-          } else if (diffDays < 7) {
-            timeDisplay = `${diffDays} days ago`;
-          } else if (diffDays < 30) {
-            timeDisplay = `${Math.floor(diffDays / 7)} weeks ago`;
-          } else {
-            timeDisplay = updatedAt.toLocaleDateString();
-          }
-
-          // Create owner display
-          const ownerName = doc.profiles?.name || 'Unknown User';
-          const initials = ownerName
-            .split(' ')
-            .map(name => name[0])
-            .join('')
-            .toUpperCase()
-            .substring(0, 2);
-          
-          // Ensure status is one of the allowed types
-          let status: "draft" | "pending" | "approved" | "rejected" = "draft";
-          if (doc.status === "pending" || doc.status === "approved" || doc.status === "rejected") {
-            status = doc.status;
-          }
-
-          return {
-            id: doc.id,
-            title: doc.title,
-            type,
-            status,
-            updatedAt: timeDisplay,
-            owner: {
-              name: ownerName,
-              initials,
-            },
-            favorited: !!favoritesMap[doc.id],
-          };
-        }) || [];
+        return documentsData?.map(doc => formatDocumentData(doc, favoritesMap)) || [];
       } catch (error) {
         console.error("Error fetching documents:", error);
         throw error;

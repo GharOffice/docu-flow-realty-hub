@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   FileText,
@@ -17,7 +16,7 @@ import {
   Tabs,
   TabsContent,
   TabsList,
-  TabsTrigger,
+  TabsTrigger
 } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Link, useNavigate } from "react-router-dom";
@@ -26,6 +25,15 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { approveDocument, rejectDocument } from "./DocumentApprovalService";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface DocumentComment {
   id: string;
@@ -105,6 +113,9 @@ const DocumentViewer = ({ document }: DocumentViewerProps) => {
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [isProcessingApproval, setIsProcessingApproval] = useState<string | null>(null);
+  const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
+  const [rejectionComment, setRejectionComment] = useState("");
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   
   const handleDownload = async () => {
     try {
@@ -212,38 +223,59 @@ const DocumentViewer = ({ document }: DocumentViewerProps) => {
   };
   
   const handleApprovalAction = async (approvalId: string, action: 'approved' | 'rejected') => {
+    if (action === 'rejected') {
+      // Open rejection dialog
+      setSelectedApprovalId(approvalId);
+      setRejectionDialogOpen(true);
+      return;
+    }
+    
     try {
       setIsProcessingApproval(approvalId);
       
-      // Call the update_document_approval_status function
-      const { data, error } = await supabase.rpc(
-        'update_document_approval_status',
-        { 
-          doc_id: document.id, 
-          approval_id: approvalId,
-          new_status: action,
-          comment_text: `Document ${action} by ${user?.email}`
-        }
-      );
-      
-      if (error) throw error;
+      await approveDocument({
+        documentId: document.id,
+        approvalId,
+        comment: `Document approved by ${user?.email}`
+      });
       
       // Refresh the document data
       queryClient.invalidateQueries({ queryKey: ['document', document.id] });
       
-      toast({
-        title: `Document ${action}`,
-        description: `You have successfully ${action} this document`,
-        variant: action === 'approved' ? 'default' : 'destructive',
-      });
-      
     } catch (error) {
-      console.error(`Error ${action} document:`, error);
+      console.error(`Error approving document:`, error);
       toast({
         title: "Action failed",
-        description: `Unable to ${action} the document. Please try again.`,
+        description: `Unable to approve the document. Please try again.`,
         variant: "destructive",
       });
+    } finally {
+      setIsProcessingApproval(null);
+    }
+  };
+  
+  const handleSubmitRejection = async () => {
+    if (!selectedApprovalId) return;
+    
+    try {
+      setIsProcessingApproval(selectedApprovalId);
+      
+      await rejectDocument({
+        documentId: document.id,
+        approvalId: selectedApprovalId,
+        comment: rejectionComment
+      });
+      
+      // Reset form and close dialog
+      setRejectionDialogOpen(false);
+      setRejectionComment("");
+      setSelectedApprovalId(null);
+      
+      // Refresh the document data
+      queryClient.invalidateQueries({ queryKey: ['document', document.id] });
+      
+    } catch (error) {
+      console.error(`Error rejecting document:`, error);
     } finally {
       setIsProcessingApproval(null);
     }
@@ -583,6 +615,50 @@ const DocumentViewer = ({ document }: DocumentViewerProps) => {
           </div>
         </TabsContent>
       </Tabs>
+      
+      {/* Rejection Dialog */}
+      <Dialog open={rejectionDialogOpen} onOpenChange={setRejectionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Document</DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejecting this document.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <Textarea
+            value={rejectionComment}
+            onChange={(e) => setRejectionComment(e.target.value)}
+            placeholder="Enter rejection reason..."
+            className="min-h-[100px]"
+          />
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectionDialogOpen(false);
+                setRejectionComment("");
+              }}
+              disabled={isProcessingApproval !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleSubmitRejection}
+              disabled={!rejectionComment.trim() || isProcessingApproval !== null}
+            >
+              {isProcessingApproval ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <X className="h-4 w-4 mr-2" />
+              )}
+              Reject Document
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
